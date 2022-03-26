@@ -1287,7 +1287,7 @@ class BaseViewer {
         [hPadding, vPadding] = [vPadding, hPadding]; // Swap the padding values.
       }
       const pageWidthScale =
-        (((this.container.clientWidth - hPadding) / currentPage.width) *
+        (((this.viewer.clientWidth - hPadding) / currentPage.width) *
           currentPage.scale) /
         this._pageWidthScaleFactor;
       const pageHeightScale =

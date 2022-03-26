@@ -1711,3 +1711,12 @@ html[dir="rtl"] .treeItemToggler.treeItemsHidden::before {
     display: none;
   }
 }
+
+#viewer {
+  margin-right: 400px;
+}
+
+#comments {
+  float: right;
+  width: 400px;
+}
