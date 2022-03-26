@@ -1946,3 +1946,12 @@ html[dir="rtl"] #documentPropertiesOverlay .row > * {
     display: none;
   }
 }
+
+#viewer {
+  margin-right: 400px;
+}
+
+#comments {
+  float: right;
+  width: 400px;
+}
