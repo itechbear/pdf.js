@@ -16,6 +16,7 @@
 @import url(pdf_viewer.css);
 
 :root {
+  --dir-factor: 1;
   --sidebar-width: 200px;
   --sidebar-transition-duration: 200ms;
   --sidebar-transition-timing-function: ease;
@@ -61,9 +62,9 @@
   --doorhanger-hover-color: rgba(12, 12, 13, 1);
   --doorhanger-hover-bg-color: rgba(237, 237, 237, 1);
   --doorhanger-separator-color: rgba(222, 222, 222, 1);
-  --overlay-button-border: 0 none;
-  --overlay-button-bg-color: rgba(12, 12, 13, 0.1);
-  --overlay-button-hover-bg-color: rgba(12, 12, 13, 0.3);
+  --dialog-button-border: 0 none;
+  --dialog-button-bg-color: rgba(12, 12, 13, 0.1);
+  --dialog-button-hover-bg-color: rgba(12, 12, 13, 0.3);
 
   --loading-icon: url(images/loading.svg);
   --treeitem-expanded-icon: url(images/treeitem-expanded.svg);
@@ -104,6 +105,10 @@
   --secondaryToolbarButton-documentProperties-icon: url(images/secondaryToolbarButton-documentProperties.svg);
 }
 
+:root:dir(rtl) {
+  --dir-factor: -1;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --main-color: rgba(249, 249, 250, 1);
@@ -141,8 +146,8 @@
     --doorhanger-hover-color: rgba(249, 249, 250, 1);
     --doorhanger-hover-bg-color: rgba(93, 94, 98, 1);
     --doorhanger-separator-color: rgba(92, 92, 97, 1);
-    --overlay-button-bg-color: rgba(92, 92, 97, 1);
-    --overlay-button-hover-bg-color: rgba(115, 115, 115, 1);
+    --dialog-button-bg-color: rgba(92, 92, 97, 1);
+    --dialog-button-hover-bg-color: rgba(115, 115, 115, 1);
 
     /* This image is used in <input> elements, which unfortunately means that
      * the `mask-image` approach used with all of the other images doesn't work
@@ -163,9 +168,9 @@
     --doorhanger-hover-color: ButtonFace;
     --doorhanger-border-color-whcm: 1px solid ButtonText;
     --doorhanger-triangle-opacity-whcm: 0;
-    --overlay-button-border: 1px solid Highlight;
-    --overlay-button-hover-bg-color: Highlight;
-    --overlay-button-hover-color: ButtonFace;
+    --dialog-button-border: 1px solid Highlight;
+    --dialog-button-hover-bg-color: Highlight;
+    --dialog-button-hover-color: ButtonFace;
     --field-border-color: ButtonText;
   }
 }
@@ -240,15 +245,10 @@ select {
   visibility: hidden;
   z-index: 100;
   border-top: 1px solid rgba(51, 51, 51, 1);
+  border-inline-end: var(--doorhanger-border-color-whcm);
   transition-property: inset-inline-start;
   transition-duration: var(--sidebar-transition-duration);
   transition-timing-function: var(--sidebar-transition-timing-function);
-}
-html[dir="ltr"] #sidebarContainer {
-  border-right: var(--doorhanger-border-color-whcm);
-}
-html[dir="rtl"] #sidebarContainer {
-  border-left: var(--doorhanger-border-color-whcm);
 }
 
 #outerContainer.sidebarResizing #sidebarContainer {
@@ -283,12 +283,7 @@ html[dir="rtl"] #sidebarContainer {
   position: absolute;
   width: 100%;
   background-color: rgba(0, 0, 0, 0.1);
-}
-html[dir="ltr"] #sidebarContent {
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.25);
-}
-html[dir="rtl"] #sidebarContent {
-  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset calc(-1px * var(--dir-factor)) 0 0 rgba(0, 0, 0, 0.25);
 }
 
 #viewerContainer {
@@ -331,14 +326,8 @@ html[dir="rtl"] #sidebarContent {
   width: 100%;
   height: 32px;
   background-color: var(--sidebar-toolbar-bg-color);
-}
-html[dir="ltr"] #toolbarSidebar {
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.25), 0 1px 0 rgba(0, 0, 0, 0.15),
-    0 0 1px rgba(0, 0, 0, 0.1);
-}
-html[dir="rtl"] #toolbarSidebar {
-  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.25), 0 1px 0 rgba(0, 0, 0, 0.15),
-    0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: inset calc(-1px * var(--dir-factor)) 0 0 rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 #toolbarSidebar .toolbarButton {
@@ -484,16 +473,9 @@ html[dir="rtl"] #toolbarSidebar {
 
 .findbar .splitToolbarButton > .findNext {
   width: 29px;
-}
-html[dir="ltr"] .findbar .splitToolbarButton > .findNext {
-  border-bottom-right-radius: 2px;
-  border-top-right-radius: 2px;
-  border-right: 1px solid var(--field-border-color);
-}
-html[dir="rtl"] .findbar .splitToolbarButton > .findNext {
-  border-bottom-left-radius: 2px;
-  border-top-left-radius: 2px;
-  border-left: 1px solid var(--field-border-color);
+  border-start-end-radius: 2px;
+  border-end-end-radius: 2px;
+  border-inline-end: 1px solid var(--field-border-color);
 }
 
 .findbar input[type="checkbox"] {
@@ -510,15 +492,6 @@ html[dir="rtl"] .findbar .splitToolbarButton > .findNext {
   background-color: var(--button-hover-color);
 }
 
-html[dir="ltr"] #findInput {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-html[dir="rtl"] #findInput {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
 .findbar .toolbarField[type="checkbox"]:checked + .toolbarLabel {
   background-color: var(--toggled-btn-bg-color) !important;
   color: var(--toggled-btn-color);
@@ -526,6 +499,8 @@ html[dir="rtl"] #findInput {
 
 #findInput {
   width: 200px;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
 }
 #findInput::-webkit-input-placeholder {
   color: rgba(191, 191, 191, 1);
@@ -536,10 +511,7 @@ html[dir="rtl"] #findInput {
 #findInput[data-status="pending"] {
   background-image: var(--loading-icon);
   background-repeat: no-repeat;
-  background-position: 98%;
-}
-html[dir="rtl"] #findInput[data-status="pending"] {
-  background-position: 3px;
+  background-position: calc(50% + 48% * var(--dir-factor));
 }
 #findInput[data-status="notFound"] {
   background-color: rgba(255, 102, 102, 1);
@@ -656,21 +628,21 @@ html[dir="rtl"] #findInput[data-status="pending"] {
 
 .toolbarButton,
 .secondaryToolbarButton,
-.overlayButton {
+.dialogButton {
   border: 0 none;
   background: none;
   width: 28px;
   height: 28px;
 }
 
-.overlayButton:hover,
-.overlayButton:focus-visible {
-  background-color: var(--overlay-button-hover-bg-color);
+.dialogButton:hover,
+.dialogButton:focus-visible {
+  background-color: var(--dialog-button-hover-bg-color);
 }
 
-.overlayButton:hover > span,
-.overlayButton:focus-visible > span {
-  color: var(--overlay-button-hover-color);
+.dialogButton:hover > span,
+.dialogButton:focus-visible > span {
+  color: var(--dialog-button-hover-color);
 }
 
 .toolbarButton > span {
@@ -682,7 +654,7 @@ html[dir="rtl"] #findInput[data-status="pending"] {
 
 .toolbarButton[disabled],
 .secondaryToolbarButton[disabled],
-.overlayButton[disabled] {
+.dialogButton[disabled] {
   opacity: 0.5;
 }
 
@@ -725,7 +697,7 @@ html[dir="rtl"] #findInput[data-status="pending"] {
 .toolbarButton,
 .dropdownToolbarButton,
 .secondaryToolbarButton,
-.overlayButton {
+.dialogButton {
   min-width: 16px;
   margin: 2px 1px;
   padding: 2px 6px 0;
@@ -871,16 +843,12 @@ html[dir="rtl"] #findInput[data-status="pending"] {
 
 .toolbarButton#sidebarToggle::before {
   mask-image: var(--toolbarButton-sidebarToggle-icon);
-}
-html[dir="rtl"] .toolbarButton#sidebarToggle::before {
-  transform: scaleX(-1);
+  transform: scaleX(var(--dir-factor));
 }
 
 .toolbarButton#secondaryToolbarToggle::before {
   mask-image: var(--toolbarButton-secondaryToolbarToggle-icon);
-}
-html[dir="rtl"] .toolbarButton#secondaryToolbarToggle::before {
-  transform: scaleX(-1);
+  transform: scaleX(var(--dir-factor));
 }
 
 .toolbarButton.findPrevious::before {
@@ -948,9 +916,7 @@ html[dir="rtl"] .toolbarButton#secondaryToolbarToggle::before {
 
 #viewOutline.toolbarButton::before {
   mask-image: var(--toolbarButton-viewOutline-icon);
-}
-html[dir="rtl"] #viewOutline.toolbarButton::before {
-  transform: scaleX(-1);
+  transform: scaleX(var(--dir-factor));
 }
 
 #viewAttachments.toolbarButton::before {
@@ -963,9 +929,7 @@ html[dir="rtl"] #viewOutline.toolbarButton::before {
 
 #currentOutlineItem.toolbarButton::before {
   mask-image: var(--toolbarButton-currentOutlineItem-icon);
-}
-html[dir="rtl"] #currentOutlineItem.toolbarButton::before {
-  transform: scaleX(-1);
+  transform: scaleX(var(--dir-factor));
 }
 
 #viewFind.toolbarButton::before {
@@ -1260,9 +1224,7 @@ a:focus > .thumbnail > .thumbnailSelectionRing,
 }
 .treeItemToggler.treeItemsHidden::before {
   mask-image: var(--treeitem-collapsed-icon);
-}
-html[dir="rtl"] .treeItemToggler.treeItemsHidden::before {
-  transform: scaleX(-1);
+  transform: scaleX(var(--dir-factor));
 }
 .treeItemToggler.treeItemsHidden ~ .treeItems {
   display: none;
@@ -1316,32 +1278,17 @@ html[dir="rtl"] .treeItemToggler.treeItemsHidden::before {
   width: 98%;
 }
 
-.overlayButton {
+.dialogButton {
   width: auto;
   margin: 3px 4px 2px !important;
   padding: 2px 11px;
   color: var(--main-color);
-  background-color: var(--overlay-button-bg-color);
-  border: var(--overlay-button-border) !important;
+  background-color: var(--dialog-button-bg-color);
+  border: var(--dialog-button-border) !important;
 }
 
-#overlayContainer {
-  display: table;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.2);
-  z-index: 40000;
-}
-
-#overlayContainer > .container {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: center;
-}
-
-#overlayContainer > .container > .dialog {
-  display: inline-block;
+dialog {
+  margin: auto;
   padding: 15px;
   border-spacing: 4px;
   color: var(--main-color);
@@ -1352,20 +1299,24 @@ html[dir="rtl"] .treeItemToggler.treeItemsHidden::before {
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
+dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.2);
+  user-select: none;
+}
 
-.dialog > .row {
+dialog > .row {
   display: table-row;
 }
 
-.dialog > .row > * {
+dialog > .row > * {
   display: table-cell;
 }
 
-.dialog .toolbarField {
+dialog .toolbarField {
   margin: 5px 0;
 }
 
-.dialog .separator {
+dialog .separator {
   display: block;
   margin: 4px 0;
   height: 1px;
@@ -1373,38 +1324,38 @@ html[dir="rtl"] .treeItemToggler.treeItemsHidden::before {
   background-color: var(--separator-color);
 }
 
-.dialog .buttonRow {
+dialog .buttonRow {
   text-align: center;
   vertical-align: middle;
 }
 
-.dialog :link {
+dialog :link {
   color: rgba(255, 255, 255, 1);
 }
 
-#passwordOverlay > .dialog {
+#passwordDialog {
   text-align: center;
 }
-#passwordOverlay .toolbarField {
+#passwordDialog .toolbarField {
   width: 200px;
 }
 
-#documentPropertiesOverlay > .dialog {
+#documentPropertiesDialog {
   text-align: left;
 }
-#documentPropertiesOverlay .row > * {
+#documentPropertiesDialog .row > * {
   min-width: 100px;
   text-align: start;
 }
-#documentPropertiesOverlay .row > span {
+#documentPropertiesDialog .row > span {
   width: 125px;
   word-wrap: break-word;
 }
-#documentPropertiesOverlay .row > p {
+#documentPropertiesDialog .row > p {
   max-width: 225px;
   word-wrap: break-word;
 }
-#documentPropertiesOverlay .buttonRow {
+#documentPropertiesDialog .buttonRow {
   margin-top: 10px;
 }
 
