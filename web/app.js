@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/* globals PDFBug, Stats */
 
 import {
   animationStarted,
@@ -526,7 +525,6 @@ const PDFViewerApplication = {
       annotationMode: AppOptions.get("annotationMode"),
       imageResourcesPath: AppOptions.get("imageResourcesPath"),
       removePageBorders: AppOptions.get("removePageBorders"), // #194
-      renderInteractiveForms: AppOptions.get("renderInteractiveForms"),
       enablePrintAutoRotate: AppOptions.get("enablePrintAutoRotate"),
       useOnlyCssZoom: AppOptions.get("useOnlyCssZoom"),
       maxCanvasPixels: AppOptions.get("maxCanvasPixels"),
@@ -747,7 +745,7 @@ const PDFViewerApplication = {
           this._documentError(msg, err);
         });
       },
-      onProgress(loaded, total) {
+      onProgress: (loaded, total) => {
         this.progress(loaded / total);
         // #588 modified by ngx-extended-pdf-viewer
         this.eventBus.dispatch("progress", {
@@ -888,9 +886,6 @@ const PDFViewerApplication = {
     this.toolbar.reset();
     this.secondaryToolbar.reset();
 
-    if (typeof PDFBug !== "undefined") {
-      PDFBug.cleanup();
-    }
     await Promise.all(promises);
   },
 
@@ -904,6 +899,7 @@ const PDFViewerApplication = {
    *                      is opened.
    */
   async open(file, args) {
+    window.adjacentPagesLoader = undefined;
     window.ngxZone.runOutsideAngular(async () => {
       if (this.pdfLoadingTask) {
         // We need to destroy already opened document.
@@ -948,13 +944,6 @@ const PDFViewerApplication = {
         }
       }
 
-    // Finally, update the API parameters with the arguments (if they exist).
-    if (args) {
-      for (const key in args) {
-        parameters[key] = args[key];
-      }
-    }
-
     const loadingTask = getDocument(parameters);
     this.pdfLoadingTask = loadingTask;
 
@@ -977,9 +966,7 @@ const PDFViewerApplication = {
         // #588 end of modification
       };
 
-
-
-      // Listen for unsupported features to trigger the fallback UI.
+      // Listen for unsupported features to report telemetry.
       loadingTask.onUnsupportedFeature = this.fallback.bind(this);
 
       this.loadingBar.show(); // #707 added by ngx-extended-pdf-viewer
@@ -987,26 +974,26 @@ const PDFViewerApplication = {
         pdfDocument => {
           this.load(pdfDocument);
         },
-        exception => {
+        reason => {
           if (loadingTask !== this.pdfLoadingTask) {
             return undefined; // Ignore errors for previously opened PDF files.
           }
 
           let key = "loading_error";
-          if (exception instanceof InvalidPDFException) {
+          if (reason instanceof InvalidPDFException) {
             key = "invalid_file_error";
-          } else if (exception instanceof MissingPDFException) {
+          } else if (reason instanceof MissingPDFException) {
             key = "missing_file_error";
-          } else if (exception instanceof UnexpectedResponseException) {
+          } else if (reason instanceof UnexpectedResponseException) {
             key = "unexpected_response_error";
           }
           return this.l10n.get(key).then(msg => {
-            this._documentError(msg, { message: exception?.message });
-            throw exception;
+            this._documentError(msg, { message: reason?.message });
+            throw reason;
           });
         }
       );
-      });
+    });
   },
 
   /**
@@ -1906,7 +1893,6 @@ const PDFViewerApplication = {
     this.pdfScriptingManager.dispatchDidPrint();
 
     if (this.printService) {
-      document.body.removeAttribute("data-pdfjsprinting");
       this.printService.destroy();
       this.printService = null;
 
@@ -2138,9 +2124,8 @@ const PDFViewerApplication = {
    * @private
    */
   _unblockDocumentLoadEvent() {
-    if (document.blockUnblockOnload) {
-      document.blockUnblockOnload(false);
-    }
+    document.blockUnblockOnload?.(false);
+
     // Ensure that this method is only ever run once.
     this._unblockDocumentLoadEvent = () => {};
   },
@@ -2177,7 +2162,7 @@ if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
     "https://mozilla.github.io",
   ];
   validateFileURL = function (file) {
-    if (file === undefined) {
+    if (!file) {
       return;
     }
     try {
@@ -2203,15 +2188,13 @@ if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
 }
 
 async function loadFakeWorker() {
-  if (!GlobalWorkerOptions.workerSrc) {
-    GlobalWorkerOptions.workerSrc = AppOptions.get("workerSrc");
+  GlobalWorkerOptions.workerSrc ||= AppOptions.get("workerSrc");
 
-    // modified by ngx-extended-pdf-viewer #376
-    if (GlobalWorkerOptions.workerSrc.constructor.name === "Function") {
-      GlobalWorkerOptions.workerSrc = GlobalWorkerOptions.workerSrc();
-    }
-    // end of modification
+  // modified by ngx-extended-pdf-viewer #376
+  if (GlobalWorkerOptions.workerSrc.constructor.name === "Function") {
+    GlobalWorkerOptions.workerSrc = GlobalWorkerOptions.workerSrc();
   }
+  // end of modification
   if (typeof PDFJSDev === "undefined" || !PDFJSDev.test("PRODUCTION")) {
     window.pdfjsWorker = await import("pdfjs/core/worker.js");
     return;
@@ -2221,67 +2204,49 @@ async function loadFakeWorker() {
 
 async function initPDFBug(enabledTabs) {
   const { debuggerScriptPath, mainContainer } = PDFViewerApplication.appConfig;
-  await loadScript(debuggerScriptPath);
+  const { PDFBug } =
+    typeof PDFJSDev === "undefined" || !PDFJSDev.test("PRODUCTION")
+      ? await import(debuggerScriptPath) // eslint-disable-line no-unsanitized/method
+      : await __non_webpack_import__(debuggerScriptPath); // eslint-disable-line no-undef
   PDFBug.init({ OPS }, mainContainer, enabledTabs);
+
+  PDFViewerApplication._PDFBug = PDFBug;
 }
 
 function reportPageStatsPDFBug({ pageNumber }) {
-  if (typeof Stats === "undefined" || !Stats.enabled) {
+  if (!globalThis.Stats?.enabled) {
     return;
   }
   const pageView = PDFViewerApplication.pdfViewer.getPageView(
     /* index = */ pageNumber - 1
   );
-  const pageStats = pageView?.pdfPage?.stats;
-  if (!pageStats) {
-    return;
-  }
-  Stats.add(pageNumber, pageStats);
+  globalThis.Stats.add(pageNumber, pageView?.pdfPage?.stats);
 }
 
 function webViewerInitialized() {
-  const appConfig = PDFViewerApplication.appConfig;
+  const { appConfig, eventBus } = PDFViewerApplication;
   let file;
-  // #907 modified by ngx-extended-pdf-viewer
-  // if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
-  //   const queryString = document.location.search.substring(1);
-  //   const params = parseQueryString(queryString);
-  //   file = params.get("file") ?? AppOptions.get("defaultUrl");
-  //   validateFileURL(file);
-  // } else if (PDFJSDev.test("MOZCENTRAL")) {
-  //   file = window.location.href;
-  // } else if (PDFJSDev.test("CHROME")) {
-  //   file = AppOptions.get("defaultUrl");
-  // }
-  // #907 end of modification by ngx-extended-pdf-viewer
+  if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
+    const queryString = document.location.search.substring(1);
+    const params = parseQueryString(queryString);
+    file = params.get("file") ?? AppOptions.get("defaultUrl");
+    validateFileURL(file);
+  } else if (PDFJSDev.test("MOZCENTRAL")) {
+    file = window.location.href;
+  } else if (PDFJSDev.test("CHROME")) {
+    file = AppOptions.get("defaultUrl");
+  }
 
   if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
-    const fileInput = document.createElement("input");
-    fileInput.id = appConfig.openFileInputName;
-    fileInput.className = "fileInput";
-    fileInput.setAttribute("accept", ".pdf,application/pdf");
-    fileInput.setAttribute("type", "file");
-    fileInput.oncontextmenu = noContextMenuHandler;
-    document.body.appendChild(fileInput);
-
-    if (
-      !window.File ||
-      !window.FileReader ||
-      !window.FileList ||
-      !window.Blob
-    ) {
-      appConfig.toolbar.openFile.hidden = true;
-      appConfig.secondaryToolbar.openFileButton.hidden = true;
-    } else {
-      fileInput.value = null;
-    }
+    const fileInput = appConfig.openFileInput;
+    fileInput.value = null;
 
     fileInput.addEventListener("change", function (evt) {
-      const files = evt.target.files;
+      const { files } = evt.target;
       if (!files || files.length === 0) {
         return;
       }
-      PDFViewerApplication.eventBus.dispatch("fileinputchange", {
+      eventBus.dispatch("fileinputchange", {
         source: this,
         fileInput: evt.target,
       });
@@ -2299,14 +2264,14 @@ function webViewerInitialized() {
       if (AppOptions.get("enableDragAndDrop")) { // #686 modified by ngx-extended-pdf-viewer
         evt.preventDefault();
 
-        const files = evt.dataTransfer.files;
+        const { files } = evt.dataTransfer;
         if (!files || files.length === 0) {
           return;
         }
-        PDFViewerApplication.eventBus.dispatch("fileinputchange",  {
+        PDFViewerApplication.eventBus.dispatch("fileinputchange", {
           source: this,
           fileInput: evt.dataTransfer,
-          dropEvent: evt // #972 allowing users to read the drop coordinate
+          dropEvent: evt // #972 allowing users to read the drop coordinates
         });
       } // #686 end of modification
     });
@@ -2340,7 +2305,7 @@ function webViewerInitialized() {
     "transitionend",
     function (evt) {
       if (evt.target === /* mainContainer */ this) {
-        PDFViewerApplication.eventBus.dispatch("resize", { source: this });
+        eventBus.dispatch("resize", { source: this });
       }
     },
     true
@@ -2579,8 +2544,8 @@ if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
   };
 
   webViewerOpenFile = function (evt) {
-    const openFileInputName = PDFViewerApplication.appConfig.openFileInputName;
-    document.getElementById(openFileInputName).click();
+    const fileInput = PDFViewerApplication.appConfig.openFileInput;
+    fileInput.click();
   };
 }
 
@@ -2726,11 +2691,13 @@ function webViewerPageChanging({ pageNumber, pageLabel }) {
   if (PDFViewerApplication.pdfSidebar.isThumbnailViewVisible) {
     PDFViewerApplication.pdfThumbnailViewer.scrollThumbnailIntoView(pageNumber);
   }
+  // modified by ngx-extended-pdf-viewer
   const pageNumberInput = document.getElementById("pageNumber");
   if (pageNumberInput) {
     const pageScrollEvent = new CustomEvent("page-change");
     pageNumberInput.dispatchEvent(pageScrollEvent);
   }
+  // end of modification by ngx-extended-pdf-viewer
 }
 
 function webViewerVisibilityChange(evt) {
@@ -2863,6 +2830,7 @@ function webViewerClick(evt) {
     (appConfig.toolbar.container.contains(evt.target) &&
       evt.target !== appConfig.secondaryToolbar.toggleButton)
   ) {
+    // modified by ngx-extended-pdf-viewer?
     if (
       evt.target &&
       evt.target.parentElement === appConfig.secondaryToolbar.toggleButton
@@ -2877,6 +2845,7 @@ function webViewerClick(evt) {
     ) {
       return;
     }
+    // end of modification by ngx-extended-pdf-viewer
 
     PDFViewerApplication.secondaryToolbar.close();
   }
@@ -2897,9 +2866,12 @@ function webViewerKeyDown(evt) {
     (evt.shiftKey ? 4 : 0) |
     (evt.metaKey ? 8 : 0);
 
+  // modified by ngx-extended-pdf-viewer
   if (window.isKeyIgnored && window.isKeyIgnored(cmd, evt.keyCode)) {
     return;
   }
+  // end of modification by ngx-extended-pdf-viewer
+
   // First, handle the key bindings that are independent whether an input
   // control is selected or not.
   if (cmd === 1 || cmd === 8 || cmd === 5 || cmd === 12) {

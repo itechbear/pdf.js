@@ -14,11 +14,11 @@
  */
 
 import {
+  FeatureTest,
   FONT_IDENTITY_MATRIX,
   IDENTITY_MATRIX,
   ImageKind,
   info,
-  IsLittleEndianCached,
   OPS,
   shadow,
   TextRenderingMode,
@@ -31,6 +31,7 @@ import {
   PathType,
   TilingPattern,
 } from "./pattern_helper.js";
+import { applyMaskImageData } from "../shared/image_utils.js";
 import { PixelsPerInch } from "./display_utils.js";
 
 // <canvas> contexts store most of the state we need natively.
@@ -42,7 +43,7 @@ const MAX_FONT_SIZE = 100;
 const MAX_GROUP_SIZE = 4096;
 
 // Defines the time the `executeOperatorList`-method is going to be executing
-// before it stops and shedules a continue of execution.
+// before it stops and schedules a continue of execution.
 const EXECUTION_TIME = 15; // ms
 // Defines the number of steps before checking the execution time.
 const EXECUTION_STEPS = 10;
@@ -702,7 +703,7 @@ function putBinaryImageData(ctx, imgData, transferMaps = null) {
     const dest32DataLength = dest32.length;
     const fullSrcDiff = (width + 7) >> 3;
     let white = 0xffffffff;
-    let black = IsLittleEndianCached.value ? 0xff000000 : 0x000000ff;
+    let black = FeatureTest.isLittleEndian ? 0xff000000 : 0x000000ff;
 
     if (transferMapGray) {
       if (transferMapGray[0] === 0xff && transferMapGray[0xff] === 0) {
@@ -845,6 +846,13 @@ function putBinaryImageData(ctx, imgData, transferMaps = null) {
 }
 
 function putBinaryImageMask(ctx, imgData) {
+  if (imgData.bitmap) {
+    // The bitmap has been created in the worker.
+    ctx.drawImage(imgData.bitmap, 0, 0);
+    return;
+  }
+
+  // Slow path: OffscreenCanvas isn't available in the worker.
   const height = imgData.height,
     width = imgData.width;
   const partialChunkHeight = height % FULL_CHUNK_HEIGHT;
@@ -862,20 +870,15 @@ function putBinaryImageMask(ctx, imgData) {
 
     // Expand the mask so it can be used by the canvas.  Any required
     // inversion has already been handled.
-    let destPos = 3; // alpha component offset
-    for (let j = 0; j < thisChunkHeight; j++) {
-      let elem,
-        mask = 0;
-      for (let k = 0; k < width; k++) {
-        if (!mask) {
-          elem = src[srcPos++];
-          mask = 128;
-        }
-        dest[destPos] = elem & mask ? 0 : 255;
-        destPos += 4;
-        mask >>= 1;
-      }
-    }
+
+    ({ srcPos } = applyMaskImageData({
+      src,
+      srcPos,
+      dest,
+      width,
+      height: thisChunkHeight,
+    }));
+
     ctx.putImageData(chunkImgData, 0, i * FULL_CHUNK_HEIGHT);
   }
 }
@@ -1120,6 +1123,15 @@ class CanvasGraphics {
     this._cachedGetSinglePixelWidth = null;
   }
 
+  getObject(data, fallback = null) {
+    if (typeof data === "string") {
+      return data.startsWith("g_")
+        ? this.commonObjs.get(data)
+        : this.objs.get(data);
+    }
+    return fallback;
+  }
+
   beginDrawing({
     transform,
     viewport,
@@ -1216,7 +1228,6 @@ class CanvasGraphics {
       fnId = fnArray[i];
 
       if (fnId !== OPS.dependency) {
-//        console.log(this[fnId].toString().split("\n")[0]); // useful for debugging
         this[fnId].apply(this, argsArray[i]);
       } else {
         for (const depObjId of argsArray[i]) {
@@ -1831,7 +1842,6 @@ class CanvasGraphics {
       }
     }
     // #916 end of modification by ngx-extended-pdf-viewer
-
 
     const isPatternFill = this.current.patternFill;
     let needRestore = false;
@@ -2798,6 +2808,9 @@ class CanvasGraphics {
     if (!this.contentVisible) {
       return;
     }
+
+    img = this.getObject(img.data, img);
+
     const ctx = this.ctx;
     const width = img.width,
       height = img.height;
@@ -2829,7 +2842,7 @@ class CanvasGraphics {
   }
 
   paintImageMaskXObjectRepeat(
-    imgData,
+    img,
     scaleX,
     skewX = 0,
     skewY = 0,
@@ -2839,11 +2852,14 @@ class CanvasGraphics {
     if (!this.contentVisible) {
       return;
     }
+
+    img = this.getObject(img.data, img);
+
     const ctx = this.ctx;
     ctx.save();
     const currentTransform = ctx.mozCurrentTransform;
     ctx.transform(scaleX, skewX, skewY, scaleY, 0, 0);
-    const mask = this._createMaskCanvas(imgData);
+    const mask = this._createMaskCanvas(img);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     for (let i = 0, ii = positions.length; i < ii; i += 2) {
@@ -2913,9 +2929,7 @@ class CanvasGraphics {
     if (!this.contentVisible) {
       return;
     }
-    const imgData = objId.startsWith("g_")
-      ? this.commonObjs.get(objId)
-      : this.objs.get(objId);
+    const imgData = this.getObject(objId);
     if (!imgData) {
       warn("Dependent image isn't ready yet");
       return;
@@ -2928,9 +2942,7 @@ class CanvasGraphics {
     if (!this.contentVisible) {
       return;
     }
-    const imgData = objId.startsWith("g_")
-      ? this.commonObjs.get(objId)
-      : this.objs.get(objId);
+    const imgData = this.getObject(objId);
     if (!imgData) {
       warn("Dependent image isn't ready yet");
       return;

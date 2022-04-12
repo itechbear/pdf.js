@@ -222,7 +222,10 @@ function getViewerConfiguration() {
     },
     errorWrapper,
     printContainer: document.getElementById("printContainer"),
-    openFileInputName: "fileInput",
+    openFileInput:
+      typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")
+        ? document.getElementById("fileInput")
+        : null,
     debuggerScriptPath: "./debugger.js",
   };
 }
@@ -283,20 +286,8 @@ function webViewerLoad() {
 
 // Block the "load" event until all pages are loaded, to ensure that printing
 // works in Firefox; see https://bugzilla.mozilla.org/show_bug.cgi?id=1618553
-if (document.blockUnblockOnload) {
-  document.blockUnblockOnload(true);
-}
-if (typeof PDFJSDev === "undefined" || !PDFJSDev.test("PRODUCTION")) {
-  if (
-    document.readyState === "interactive" ||
-    document.readyState === "complete"
-  ) {
-    webViewerLoad();
-  } else {
-    document.addEventListener("DOMContentLoaded", webViewerLoad, true);
-  }
-} else {
-  window.webViewerLoad = webViewerLoad;
-}
+document.blockUnblockOnload?.(true);
+
+window.webViewerLoad = webViewerLoad;
 
 export { PDFViewerApplication, AppOptions as PDFViewerApplicationOptions };

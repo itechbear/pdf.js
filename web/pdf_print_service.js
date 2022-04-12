@@ -16,7 +16,6 @@
 import { AnnotationMode, PixelsPerInch } from "pdfjs-lib";
 import { PDFPrintServiceFactory, PDFViewerApplication } from "./app.js";
 import canvasSize from "canvas-size";
-// import { compatibilityParams } from "./app_options.js";
 import { getXfaHtmlForPrinting } from "./print_utils.js";
 
 let activeService = null;
@@ -125,6 +124,10 @@ PDFPrintService.prototype = {
 
     const body = document.querySelector("body");
     body.setAttribute("data-pdfjsprinting", true);
+    // #1131 modified by ngx-extended-pdf-viewer
+    const html = document.querySelector("html");
+    html.setAttribute("data-pdfjsprinting", true);
+    // #1131 end of modification
 
     const hasEqualPageSizes = this.pagesOverview.every(function (size) {
       return (
@@ -165,6 +168,10 @@ PDFPrintService.prototype = {
 
     const body = document.querySelector("body");
     body.removeAttribute("data-pdfjsprinting");
+    // #1131 modified by ngx-extended-pdf-viewer
+    const html = document.querySelector("html");
+    html.removeAttribute("data-pdfjsprinting");
+    // #1131 end of modification
 
     if (this.pageStyleSheet) {
       this.pageStyleSheet.remove();

@@ -116,7 +116,7 @@ class PDFFindBar {
     this.pageRange.addEventListener("input", () => { // #802
       this.dispatchEvent("pageRangeChange"); // #802
     }); // #802
-    this.matchDiacritics.addEventListener("click", () => {
+    this.matchDiacritics?.addEventListener("click", () => {
       this.dispatchEvent("diacriticmatchingchange");
     });
 
@@ -143,7 +143,7 @@ class PDFFindBar {
       currentPage: this.currentPage.checked, // #832
       pageRange: this.pageRange.value, // #832
       findPrevious: findPrev,
-      matchDiacritics: this.matchDiacritics.checked,
+      matchDiacritics: this.matchDiacritics?.checked, // #1181
     });
   }
 
@@ -168,6 +168,7 @@ class PDFFindBar {
     this.findField.setAttribute("data-status", status);
     this.findFieldMultiline.classList.toggle("notFound", status === "notFound"); // #201
     this.findFieldMultiline.setAttribute("data-status", status); // #201
+    this.findField.setAttribute("aria-invalid", state === FindState.NOT_FOUND);
 
     findMsg.then(msg => {
       this.findMsg.textContent = msg;
@@ -268,4 +269,3 @@ class PDFFindBar {
 }
 
 export { PDFFindBar };
-

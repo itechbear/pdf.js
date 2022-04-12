@@ -228,10 +228,10 @@ class PDFSidebar {
     this.attachmentsButton.classList.toggle("toggled", isAttachments);
     this.layersButton.classList.toggle("toggled", isLayers);
 
-    this.thumbnailButton.setAttribute("aria-checked", `${isThumbs}`);
-    this.outlineButton.setAttribute("aria-checked", `${isOutline}`);
-    this.attachmentsButton.setAttribute("aria-checked", `${isAttachments}`);
-    this.layersButton.setAttribute("aria-checked", `${isLayers}`);
+    this.thumbnailButton.setAttribute("aria-checked", isThumbs);
+    this.outlineButton.setAttribute("aria-checked", isOutline);
+    this.attachmentsButton.setAttribute("aria-checked", isAttachments);
+    this.layersButton.setAttribute("aria-checked", isLayers);
     // ... and for all views.
     this.thumbnailView.classList.toggle("hidden", !isThumbs);
     this.outlineView.classList.toggle("hidden", !isOutline);
@@ -260,7 +260,7 @@ class PDFSidebar {
     if (this.isOpen) {
       return;
     }
-    await this.pdfThumbnailViewer.renderThumbnails();
+    await this.pdfThumbnailViewer.renderThumbnails(); // #1055 improve performance
     this.isOpen = true;
     this.toggleButton.classList.add("toggled");
     this.toggleButton.setAttribute("aria-expanded", "true");
@@ -437,11 +437,12 @@ class PDFSidebar {
         // #645 modified by ngx-extended-pdf-viewer
         if (evt.currentOutlineItemPromise) { // #645 modified by ngx-extended-pdf-viewer
 	      	evt.currentOutlineItemPromise.then(enabled => {
-	        if (!this.isInitialViewSet) {
-	          return;
-	        }
-	        this._currentOutlineItemButton.disabled = !enabled;
-	      });        } // #645 modified by ngx-extended-pdf-viewer
+            if (!this.isInitialViewSet) {
+              return;
+            }
+            this._currentOutlineItemButton.disabled = !enabled;
+          });
+        } // #645 modified by ngx-extended-pdf-viewer
       }
     });
 
